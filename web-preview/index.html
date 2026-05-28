@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MicLoop</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── My Recordings section ── */
+    .my-recordings-section { padding: 0 0 12px; }
+
+    .recordings-list {
+      padding: 0 22px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .rec-card {
+      background: rgba(8, 12, 24, 0.65);
+      backdrop-filter: blur(28px) saturate(160%);
+      -webkit-backdrop-filter: blur(28px) saturate(160%);
+      border: 1px solid rgba(255,255,255,0.07);
+      border-radius: var(--r-lg);
+      padding: 18px 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      transition: all var(--transition);
+    }
+    .rec-card:hover {
+      background: rgba(12, 18, 36, 0.75);
+      border-color: rgba(255,255,255,0.11);
+    }
+    .rec-card.playing {
+      border-color: rgba(10,132,255,0.28);
+      box-shadow: 0 0 32px rgba(10,132,255,0.08);
+    }
+
+    .rec-play-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(10,132,255,0.18);
+      border: 1px solid rgba(10,132,255,0.38);
+      color: var(--accent-light);
+      font-size: 13px;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+      box-shadow: 0 0 20px rgba(10,132,255,0.15);
+      backdrop-filter: blur(8px);
+    }
+    .rec-play-btn:hover {
+      background: rgba(10,132,255,0.30);
+      border-color: rgba(10,132,255,0.60);
+      box-shadow: 0 0 30px rgba(10,132,255,0.28);
+      transform: scale(1.05);
+    }
+    .rec-play-btn.paused {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      box-shadow: none;
+      color: var(--text-2);
+    }
+
+    .rec-body { flex: 1; min-width: 0; }
+    .rec-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-1);
+      letter-spacing: -0.2px;
+      margin-bottom: 4px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .rec-progress-wrap {
+      margin: 6px 0 5px;
+      display: none;
+    }
+    .rec-progress-wrap.visible { display: block; }
+    .rec-progress-bar {
+      width: 100%;
+      height: 2px;
+      background: rgba(255,255,255,0.08);
+      border-radius: var(--r-full);
+      cursor: pointer;
+    }
+    .rec-progress-fill {
+      height: 2px;
+      background: linear-gradient(90deg, var(--accent), var(--accent-light));
+      border-radius: var(--r-full);
+      width: 0%;
+      transition: width 0.4s linear;
+    }
+
+    .rec-meta {
+      font-size: 11px;
+      font-weight: 300;
+      color: var(--text-3);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .rec-delete-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: none;
+      border: 1px solid transparent;
+      color: var(--text-3);
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all var(--transition);
+    }
+    .rec-delete-btn:hover {
+      background: rgba(255,59,48,0.10);
+      border-color: rgba(255,59,48,0.20);
+      color: var(--live);
+    }
+    .rec-delete-btn svg {
+      width: 15px;
+      height: 15px;
+      stroke: currentColor;
+      fill: none;
+      stroke-width: 1.6;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .recordings-empty {
+      text-align: center;
+      padding: 30px 22px;
+      font-size: 13px;
+      font-weight: 300;
+      color: var(--text-3);
+    }
+  </style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Header ─────────────────────────────────────────────── -->
+  <header class="header">
+    <div class="logo-lockup">
+      <img src="logo.svg" alt="MicLoop" />
+      <span class="wordmark">MicLoop</span>
+    </div>
+    <button class="btn-start" onclick="openSheet()">+ התחל לופ</button>
+  </header>
+
+  <!-- ── Feed ───────────────────────────────────────────────── -->
+  <main class="feed" id="feed"></main>
+
+</div>
+
+<!-- ── Bottom Nav ─────────────────────────────────────────── -->
+<nav class="bottom-nav">
+  <button class="nav-item active" onclick="setNav(this)">
+    <span class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M3 9.5L12 3l9 6.5V20a1 1 0 01-1 1H4a1 1 0 01-1-1V9.5z"/><path d="M9 21V12h6v9"/></svg>
+    </span>
+    <span class="nav-label">Home</span>
+  </button>
+  <button class="nav-item" onclick="setNav(this)">
+    <span class="nav-icon">
+      <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+    </span>
+    <span class="nav-label">Schedule</span>
+  </button>
+  <button class="nav-item" onclick="setNav(this)">
+    <span class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M4 19.5A2.5 2.5 0 016.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 014 19.5v-15A2.5 2.5 0 016.5 2z"/></svg>
+    </span>
+    <span class="nav-label">Library</span>
+  </button>
+  <button class="nav-item" onclick="setNav(this)">
+    <span class="nav-icon">
+      <svg viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    </span>
+    <span class="nav-label">Profile</span>
+  </button>
+</nav>
+
+<!-- ── New Loop Sheet ──────────────────────────────────────── -->
+<div class="overlay" id="overlay" onclick="handleOverlayClick(event)">
+  <div class="sheet">
+    <div class="sheet-handle"></div>
+    <h2>לופ חדש</h2>
+    <p>על מה מדברים?</p>
+    <textarea
+      class="input-title"
+      id="loopTitle"
+      placeholder="נושא, שאלה, או רעיון..."
+      maxlength="80"
+      oninput="onTitleInput(this)"
+    ></textarea>
+    <div class="char-count"><span id="charCount">0</span>/80</div>
+    <button class="btn-go-live" id="goLiveBtn" onclick="startLoop()" disabled>
+      🎙&nbsp; שידור חי עכשיו
+    </button>
+    <button class="btn-cancel" onclick="closeSheet()">ביטול</button>
+  </div>
+</div>
+
+<script>
+// ─── Mock data ────────────────────────────────────────────────────
+const LIVE_LOOPS = [
+  {
+    id: 'live-1',
+    title: 'האם הבינה המלאכותית תחליף את שוק העבודה הדיגיטלי?',
+    host: 'יואב קליין',
+    listeners: 47,
+    startTime: '18:00',
+    endTime:   '19:00',
+    speakers: [
+      { emoji: '🧑‍💻', name: 'Yoav'   },
+      { emoji: '👩‍🎨', name: 'Sarah'  },
+      { emoji: '🧑‍🔬', name: 'Daniel' },
+      { emoji: '👩‍💼', name: 'Noa'    },
+    ],
+  },
+  {
+    id: 'live-2',
+    title: 'שאלו אותי הכל: בניית סטארטאפ מאפס ב-2025',
+    host: 'נועה בן-דוד',
+    listeners: 12,
+    startTime: '19:30',
+    endTime:   '20:30',
+    speakers: [
+      { emoji: '👩', name: 'Noa'  },
+      { emoji: '👨', name: 'Ron'  },
+    ],
+  },
+]
+
+const UPCOMING = [
+  { title: 'כלכלת הקשב: בניית קהילה של 10K ב-6 חודשים', host: 'ליאור כץ',   time: '18:30' },
+  { title: 'דת ומדינה ב-2025: איפה עובר הגבול?',          host: 'שירה אורן',  time: '19:00' },
+  { title: 'AI ויצירתיות — שיחה פתוחה עם מעצבים',        host: 'מיכל רון',   time: '20:00' },
+  { title: 'מוצר ב-0 תקציב שיווק',                        host: 'גל בן-שלום', time: 'מחר 09:00' },
+]
+
+const PAST_LOOPS = [
+  { id:'p1', title:'למה רוב מערכות הפרודוקטיביות נכשלות (ומה שבאמת עובד)', host:'דנה לוי',    duration:487, ago:'לפני שעתיים', listeners:83  },
+  { id:'p2', title:'עבודה מרחוק ב-2025: לקחים משלוש שנים מרוחק לגמרי',    host:'אמית שרון',  duration:391, ago:'לפני 5 שעות', listeners:61  },
+  { id:'p3', title:'מערכות עיצוב בגדול — מה שאף אחד לא אומר לך',          host:'תמר כהן',   duration:544, ago:'אתמול',       listeners:128 },
+  { id:'p4', title:'האם Notion באמת טוב יותר מסתם תיקיות?',                host:'רון פרידמן', duration:214, ago:'לפני יומיים', listeners:34  },
+]
+
+// ─── Helpers ──────────────────────────────────────────────────────
+const initials = name => name.split(' ').map(w => w[0]).join('').slice(0, 2)
+const pad      = n    => String(n).padStart(2, '0')
+const fmtDur   = sec  => `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`
+
+// ─── Render ───────────────────────────────────────────────────────
+function renderFeed() {
+  if (LIVE_LOOPS.length === 0 && PAST_LOOPS.length === 0) {
+    document.getElementById('feed').innerHTML = `
+      <div class="empty">
+        <div class="empty-emoji">🎙</div>
+        <div class="empty-title">אין לופים עדיין</div>
+        <div class="empty-sub">פתח לופ והיה הקול הראשון בפיד.</div>
+      </div>`
+    return
+  }
+
+  let html = ''
+
+  // ── Hero: first live loop ──────────────────────────────────────
+  if (LIVE_LOOPS.length > 0) {
+    const hero = LIVE_LOOPS[0]
+    const speakersHtml = (hero.speakers || []).map(s =>
+      `<div class="spkr-av" title="${s.name}">${s.emoji}</div>`
+    ).join('')
+    const speakersCount = (hero.speakers || []).length
+
+    html += `
+      <div class="hero-section">
+        <div class="hero-card" onclick="goToLoop('${hero.id}')">
+
+          <div class="live-now-badge">
+            <div class="live-now-dot"></div>
+            <span class="live-now-text">LIVE NOW</span>
+            <span class="live-now-sep">|</span>
+            <span class="live-now-time">${hero.startTime} - ${hero.endTime}</span>
+          </div>
+
+          <div class="hero-title">${hero.title}</div>
+
+          <div class="speaker-avatars-row">
+            ${speakersHtml}
+            <span class="speakers-label">
+              ${speakersCount > 1 ? speakersCount + ' דוברים מאומתים' : hero.host}
+            </span>
+          </div>
+
+          <a class="btn-join-hero" href="loop.html?id=${hero.id}&isHost=0"
+             onclick="event.stopPropagation()">
+            הצטרף לשיחה &nbsp;→
+          </a>
+        </div>
+      </div>`
+
+    // Secondary live loops
+    if (LIVE_LOOPS.length > 1) {
+      html += `<div class="mini-live-row">`
+      LIVE_LOOPS.slice(1).forEach(loop => {
+        html += `
+          <a class="mini-card" href="loop.html?id=${loop.id}">
+            <div class="mini-avatar">${initials(loop.host)}</div>
+            <div class="mini-body">
+              <div class="mini-title">${loop.title}</div>
+              <div class="mini-host">${loop.host}</div>
+              <div class="mini-meta">
+                <div class="live-badge">
+                  <div class="live-dot"></div>
+                  <span class="live-text">LIVE</span>
+                </div>
+                <span style="font-size:11px;color:var(--text-3)">·&nbsp;${loop.listeners} מאזינים</span>
+              </div>
+            </div>
+            <span class="btn-join-sm">הצטרף</span>
+          </a>`
+      })
+      html += `</div>`
+    }
+  }
+
+  // ── Up Next timeline ───────────────────────────────────────────
+  html += `
+    <div class="section-header">
+      <span class="section-label">בהמשך</span>
+    </div>
+    <div class="timeline">`
+
+  UPCOMING.forEach(item => {
+    html += `
+      <div class="timeline-item">
+        <div class="timeline-dot-col">
+          <div class="timeline-dot"></div>
+        </div>
+        <div class="timeline-body">
+          <div class="timeline-time">${item.time}</div>
+          <div class="timeline-title">${item.title}</div>
+          <div class="timeline-host">${item.host}</div>
+        </div>
+      </div>`
+  })
+
+  html += `</div>`
+
+  // ── Past loops ─────────────────────────────────────────────────
+  html += `
+    <div class="section-header">
+      <span class="section-label">לופים קודמים</span>
+    </div>
+    <div class="past-list">`
+
+  PAST_LOOPS.forEach((loop, i) => {
+    html += `
+      <div class="past-card" id="pc-${i}">
+        <div class="past-avatar">${initials(loop.host)}</div>
+        <div class="past-body">
+          <div class="past-title">${loop.title}</div>
+          <div class="past-host">${loop.host}</div>
+          <div class="progress-wrap" id="pw-${i}" style="display:none">
+            <div class="progress-bar" onclick="seekAudio(${i},event)">
+              <div class="progress-fill" id="pf-${i}"></div>
+            </div>
+          </div>
+          <div class="past-meta">
+            <span id="dur-${i}">${fmtDur(loop.duration)}</span>
+            <span class="meta-dot">·</span>
+            <span>${loop.ago}</span>
+            <span class="meta-dot">·</span>
+            <span>${loop.listeners} מאזינים</span>
+          </div>
+        </div>
+        <button class="btn-play" id="play-${i}" onclick="togglePlay(${i})" title="השמע">▶</button>
+      </div>`
+  })
+
+  html += `</div>`
+  document.getElementById('feed').innerHTML = html
+}
+
+// ─── Simulated playback ───────────────────────────────────────────
+const playerState = {}
+
+function togglePlay(i) {
+  const loop = PAST_LOOPS[i]
+  const btn  = document.getElementById(`play-${i}`)
+  const pw   = document.getElementById(`pw-${i}`)
+  const pf   = document.getElementById(`pf-${i}`)
+  const dur  = document.getElementById(`dur-${i}`)
+
+  // Pause others
+  Object.keys(playerState).forEach(j => {
+    if (Number(j) !== i && playerState[j]?.interval) stopPlay(Number(j))
+  })
+
+  if (!playerState[i]) {
+    playerState[i] = { posMs: 0, playing: true }
+    pw.style.display = 'block'
+    btn.classList.add('playing')
+    btn.textContent = '⏸'
+    runInterval(i, loop, pf, dur)
+    return
+  }
+
+  if (playerState[i].playing) {
+    clearInterval(playerState[i].interval)
+    playerState[i].playing = false
+    btn.classList.remove('playing')
+    btn.textContent = '▶'
+  } else {
+    playerState[i].playing = true
+    btn.classList.add('playing')
+    btn.textContent = '⏸'
+    runInterval(i, loop, pf, dur)
+  }
+}
+
+function runInterval(i, loop, pf, dur) {
+  const ms = loop.duration * 1000
+  playerState[i].interval = setInterval(() => {
+    playerState[i].posMs = Math.min(playerState[i].posMs + 500, ms)
+    const p = playerState[i].posMs / ms
+    pf.style.width = (p * 100) + '%'
+    const elapsed = Math.floor(playerState[i].posMs / 1000)
+    dur.textContent = `${fmtDur(elapsed)} / ${fmtDur(loop.duration)}`
+    if (p >= 1) stopPlay(i)
+  }, 500)
+}
+
+function stopPlay(i) {
+  clearInterval(playerState[i]?.interval)
+  playerState[i] = null
+  const btn = document.getElementById(`play-${i}`)
+  const pf  = document.getElementById(`pf-${i}`)
+  const dur = document.getElementById(`dur-${i}`)
+  if (btn) { btn.classList.remove('playing'); btn.textContent = '▶' }
+  if (pf)  pf.style.width = '0%'
+  if (dur) dur.textContent = fmtDur(PAST_LOOPS[i].duration)
+}
+
+function seekAudio(i, e) {
+  if (!playerState[i]) return
+  const ratio = Math.max(0, Math.min(1, e.offsetX / e.currentTarget.offsetWidth))
+  playerState[i].posMs = ratio * PAST_LOOPS[i].duration * 1000
+  document.getElementById(`pf-${i}`).style.width = (ratio * 100) + '%'
+}
+
+// ─── Sheet ────────────────────────────────────────────────────────
+function openSheet() {
+  document.getElementById('overlay').classList.add('open')
+  setTimeout(() => document.getElementById('loopTitle').focus(), 280)
+}
+function closeSheet() {
+  document.getElementById('overlay').classList.remove('open')
+  document.getElementById('loopTitle').value = ''
+  document.getElementById('charCount').textContent = '0'
+  document.getElementById('goLiveBtn').disabled = true
+}
+function handleOverlayClick(e) {
+  if (e.target === document.getElementById('overlay')) closeSheet()
+}
+function onTitleInput(el) {
+  document.getElementById('charCount').textContent = el.value.length
+  document.getElementById('goLiveBtn').disabled = !el.value.trim()
+}
+function startLoop() {
+  const title = document.getElementById('loopTitle').value.trim()
+  if (!title) return
+  window.location.href = `loop.html?title=${encodeURIComponent(title)}&isHost=1`
+}
+
+// ─── Nav ──────────────────────────────────────────────────────────
+function setNav(el) {
+  document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'))
+  el.classList.add('active')
+}
+function goToLoop(id) {
+  window.location.href = `loop.html?id=${id}`
+}
+
+// ─── Init ─────────────────────────────────────────────────────────
+renderFeed()
+</script>
+
+<script src="recordings.js"></script>
+<script>
+// ─── My Recordings ────────────────────────────────────────────────
+let activeAudio   = null   // current Audio object
+let activeBlobUrl = null   // current object URL (needs revoking)
+let activeRecId   = null   // id of currently playing recording
+
+const pad = n => String(n).padStart(2, '0')
+const fmtDur = sec => `${pad(Math.floor(sec / 60))}:${pad(sec % 60)}`
+
+function fmtDate(isoString) {
+  const d = new Date(isoString)
+  return d.toLocaleDateString('he-IL', { day: 'numeric', month: 'short' }) +
+         ' · ' +
+         d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+}
+
+async function renderMyRecordings() {
+  let recordings = []
+  try {
+    recordings = await getAllRecordings()
+  } catch (err) {
+    console.error('[MicLoop] IndexedDB error:', err)
+  }
+
+  // ✅ Inject section INSIDE #feed (the scrollable container).
+  //    Previously it was inserted after #feed (outside the scroll area → invisible).
+  let section = document.getElementById('my-recordings-section')
+  if (!section) {
+    section = document.createElement('div')
+    section.id        = 'my-recordings-section'
+    section.className = 'my-recordings-section'
+    document.getElementById('feed').appendChild(section)   // ← inside, not after
+  }
+
+  if (recordings.length === 0) {
+    section.innerHTML = `
+      <div class="section-header">
+        <span class="section-label">הלופים שלי</span>
+      </div>
+      <div class="recordings-empty">
+        עדיין אין הקלטות — לחץ על 🎙 בלופ חי כדי להתחיל.
+      </div>`
+    return
+  }
+
+  let html = `
+    <div class="section-header">
+      <span class="section-label">הלופים שלי</span>
+      <span style="font-size:11px;color:var(--text-3);margin-right:auto;">${recordings.length} הקלטות</span>
+    </div>
+    <div class="recordings-list" id="recordings-list">`
+
+  recordings.forEach(rec => {
+    const isPlaying = activeRecId === rec.id
+    html += `
+      <div class="rec-card ${isPlaying ? 'playing' : ''}" id="rec-card-${rec.id}">
+
+        <button class="rec-play-btn ${isPlaying ? '' : 'paused'}"
+                onclick="togglePlayRecording(${rec.id})"
+                title="${isPlaying ? 'השהה' : 'השמע'}">
+          ${isPlaying ? '⏸' : '▶'}
+        </button>
+
+        <div class="rec-body">
+          <div class="rec-name">${rec.name}</div>
+          <div class="rec-progress-wrap ${isPlaying ? 'visible' : ''}" id="rpw-${rec.id}">
+            <div class="rec-progress-bar" onclick="seekRec(${rec.id}, event)">
+              <div class="rec-progress-fill" id="rpf-${rec.id}"></div>
+            </div>
+          </div>
+          <div class="rec-meta">
+            <span id="rdur-${rec.id}">${fmtDur(rec.duration ?? 0)}</span>
+            <span>·</span>
+            <span>${fmtDate(rec.date)}</span>
+          </div>
+        </div>
+
+        <button class="rec-delete-btn"
+                onclick="handleDelete(${rec.id})"
+                title="מחק הקלטה">
+          <svg viewBox="0 0 24 24">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6l-1 14H6L5 6"/>
+            <path d="M10 11v6M14 11v6"/>
+            <path d="M9 6V4h6v2"/>
+          </svg>
+        </button>
+
+      </div>`
+  })
+
+  html += `</div>`
+  section.innerHTML = html
+}
+
+// ─── Playback ─────────────────────────────────────────────────────
+async function togglePlayRecording(id) {
+  // Stop current if same id → pause/stop
+  if (activeRecId === id) {
+    stopActiveAudio()
+    renderMyRecordings()
+    return
+  }
+
+  // Stop whatever was playing before
+  stopActiveAudio()
+
+  // Load from DB and play
+  let recordings
+  try { recordings = await getAllRecordings() } catch { return }
+  const rec = recordings.find(r => r.id === id)
+  if (!rec) return
+
+  activeBlobUrl = URL.createObjectURL(rec.blob)
+  activeAudio   = new Audio(activeBlobUrl)
+  activeRecId   = id
+
+  // Update UI immediately (don't wait for end)
+  renderMyRecordings()
+
+  // Progress updates
+  activeAudio.addEventListener('timeupdate', () => {
+    const fill = document.getElementById(`rpf-${id}`)
+    const dur  = document.getElementById(`rdur-${id}`)
+    if (!fill || !activeAudio) return
+    const progress = activeAudio.duration
+      ? activeAudio.currentTime / activeAudio.duration
+      : 0
+    fill.style.width = (progress * 100) + '%'
+    if (dur) {
+      const elapsed = Math.floor(activeAudio.currentTime)
+      const total   = Math.floor(activeAudio.duration || rec.duration || 0)
+      dur.textContent = `${fmtDur(elapsed)} / ${fmtDur(total)}`
+    }
+  })
+
+  activeAudio.addEventListener('ended', () => {
+    stopActiveAudio()
+    renderMyRecordings()
+  })
+
+  activeAudio.play().catch(() => {
+    stopActiveAudio()
+    renderMyRecordings()
+  })
+}
+
+function stopActiveAudio() {
+  if (activeAudio) {
+    activeAudio.pause()
+    activeAudio = null
+  }
+  if (activeBlobUrl) {
+    URL.revokeObjectURL(activeBlobUrl)
+    activeBlobUrl = null
+  }
+  activeRecId = null
+}
+
+function seekRec(id, e) {
+  if (activeRecId !== id || !activeAudio || !activeAudio.duration) return
+  const ratio = Math.max(0, Math.min(1, e.offsetX / e.currentTarget.offsetWidth))
+  activeAudio.currentTime = ratio * activeAudio.duration
+}
+
+// ─── Delete ───────────────────────────────────────────────────────
+async function handleDelete(id) {
+  if (activeRecId === id) stopActiveAudio()
+  try {
+    await deleteRecording(id)
+  } catch { return }
+
+  // Animate card out before re-render
+  const card = document.getElementById(`rec-card-${id}`)
+  if (card) {
+    card.style.transition = 'opacity 0.25s, transform 0.25s'
+    card.style.opacity    = '0'
+    card.style.transform  = 'translateX(20px)'
+    setTimeout(() => renderMyRecordings(), 260)
+  } else {
+    renderMyRecordings()
+  }
+}
+
+// ─── Init (recordings — after function is defined) ────────────────
+renderMyRecordings().then(() => {
+  // If navigated here from recorder.html with the #my-recordings-section hash,
+  // scroll the feed container down to the recordings section automatically.
+  if (window.location.hash === '#my-recordings-section') {
+    const section = document.getElementById('my-recordings-section')
+    const feed    = document.getElementById('feed')
+    if (section && feed) {
+      // Small delay lets the browser finish painting first
+      setTimeout(() => {
+        feed.scrollTo({ top: section.offsetTop - 16, behavior: 'smooth' })
+      }, 120)
+    }
+  }
+})
+</script>
+</body>
+</html>

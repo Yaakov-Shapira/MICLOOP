@@ -1,0 +1,49 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users can read/write their own profile
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Loops: anyone can read; only Cloud Functions (admin SDK) write
+    match /loops/{loopId} {
+      allow read: if true;
+      allow write: if false; // Cloud Functions only via admin SDK
+
+      // Messages: authenticated users can read/create
+      match /messages/{messageId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.resource.data.userId == request.auth.uid;
+        allow update, delete: if false;
+      }
+
+      // Raise-hand queue: users manage their own entry
+      match /queue/{userId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null;
+      }
+
+      // Ratings: users write only their own
+      match /ratings/{userId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Likes: users manage their own
+    match /userLikes/{userId}/liked/{loopId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    // Host requests: authenticated users can create; admin reads
+    match /hostRequests/{requestId} {
+      allow create: if request.auth != null;
+      allow read, update: if false; // Admin SDK only
+    }
+  }
+}

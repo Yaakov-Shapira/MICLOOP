@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "micloop-app",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["serve", "web-preview", "--listen", "3131", "--no-clipboard"],
+      "port": 3131
+    }
+  ]
+}

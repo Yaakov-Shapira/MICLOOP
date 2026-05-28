@@ -1,0 +1,15 @@
+export const Colors = {
+  bg: '#000000',
+  bgDeep: '#080C1A',
+  bgCard: '#0D1526',
+  glass: 'rgba(8, 12, 24, 0.65)',
+  accent: '#0A84FF',
+  accentLight: '#4DA8FF',
+  live: '#FF3B30',
+  green: '#30D158',
+  text1: '#FFFFFF',
+  text2: '#8094B8',
+  text3: '#3A4664',
+  border: 'rgba(58, 70, 100, 0.4)',
+  overlay: 'rgba(0, 0, 0, 0.7)',
+} as const;

@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MicLoop — שידור חי</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    /* ── Loop page shell ────────────────────────────────────────── */
+    .loop-shell {
+      max-width: 480px;
+      margin: 0 auto;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+
+    /* ── Top bar ────────────────────────────────────────────────── */
+    .loop-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 18px 14px;
+      position: sticky;
+      top: 0;
+      background: rgba(0,0,0,0.84);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      border-bottom: 1px solid var(--border);
+      z-index: 20;
+      gap: 12px;
+    }
+
+    /* Waveform bars (decorative, top corners) */
+    .topbar-wave {
+      display: flex;
+      align-items: center;
+      gap: 2.5px;
+      height: 20px;
+    }
+    .topbar-wave .wb {
+      width: 2.5px;
+      border-radius: 2px;
+      background: var(--accent);
+      opacity: 0.7;
+      animation: wave-bar 1.3s ease-in-out infinite;
+    }
+    .topbar-wave .wb:nth-child(1) { height: 5px;  animation-delay: 0s;    }
+    .topbar-wave .wb:nth-child(2) { height: 12px; animation-delay: 0.15s; }
+    .topbar-wave .wb:nth-child(3) { height: 18px; animation-delay: 0.3s;  }
+    .topbar-wave .wb:nth-child(4) { height: 12px; animation-delay: 0.45s; }
+    .topbar-wave .wb:nth-child(5) { height: 6px;  animation-delay: 0.6s;  }
+    @keyframes wave-bar {
+      0%, 100% { transform: scaleY(1);    }
+      50%       { transform: scaleY(0.25); }
+    }
+
+    /* Center wordmark */
+    .topbar-center {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 1;
+      justify-content: center;
+    }
+    .topbar-center img  { width: 26px; height: 26px; }
+    .topbar-wordmark    { font-size: 16px; font-weight: 800; letter-spacing: -0.4px; color: var(--text-1); }
+
+    /* Live now pill */
+    .live-now-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(255,59,48,0.13);
+      border: 1px solid rgba(255,59,48,0.25);
+      border-radius: var(--r-full);
+      padding: 5px 12px;
+      white-space: nowrap;
+    }
+    .live-now-pill .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--live);
+      box-shadow: 0 0 7px rgba(255,59,48,0.9);
+      animation: blink-dot 1.4s ease-in-out infinite;
+    }
+    .live-now-pill span { font-size: 11px; font-weight: 700; letter-spacing: 1px; color: var(--live); }
+
+    /* Timer (tiny, below topbar) */
+    .loop-timer-bar {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 7px 0 3px;
+    }
+    .rec-dot-small {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--live);
+      box-shadow: 0 0 8px rgba(255,59,48,0.7);
+      animation: blink-dot 1.4s ease-in-out infinite;
+    }
+    .rec-timer-sm {
+      font-size: 13px; font-weight: 700; color: var(--live);
+      font-variant-numeric: tabular-nums; letter-spacing: 0.5px;
+    }
+
+    /* View toggle */
+    .view-toggle {
+      display: flex;
+      gap: 8px;
+      padding: 10px 18px 2px;
+    }
+    .toggle-btn {
+      padding: 7px 16px;
+      border-radius: var(--r-full);
+      border: 1px solid var(--border);
+      background: none;
+      color: var(--text-2);
+      font-family: 'Heebo', sans-serif;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+    }
+    .toggle-btn.active {
+      background: var(--accent-soft);
+      border-color: var(--border-blue);
+      color: var(--accent-light);
+    }
+
+    /* ── Scroll content ─────────────────────────────────────────── */
+    .loop-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 0 0 130px;
+      scrollbar-width: none;
+    }
+    .loop-content::-webkit-scrollbar { display: none; }
+
+    /* ── Host stage (centered big avatar) ───────────────────────── */
+    .host-stage {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 44px 20px 20px;
+      position: relative;
+    }
+
+    /* Ambient glow cloud behind avatar */
+    .host-glow-cloud {
+      position: absolute;
+      top: 20px;
+      width: 280px; height: 280px;
+      border-radius: 50%;
+      background: radial-gradient(
+        circle,
+        rgba(10,132,255,0.28) 0%,
+        rgba(10,132,255,0.10) 35%,
+        rgba(10,132,255,0.03) 60%,
+        transparent 75%
+      );
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Concentric expanding rings */
+    .host-rings-wrap {
+      position: relative;
+      width: 112px; height: 112px;
+      display: flex; align-items: center; justify-content: center;
+      margin-bottom: 22px;
+      z-index: 1;
+    }
+    .ring {
+      position: absolute; border-radius: 50%;
+      border: 1px solid rgba(10,132,255,0.4);
+      pointer-events: none;
+      animation: ring-expand 3.5s ease-out infinite;
+    }
+    .r1 { width: 112px; height: 112px; animation-delay: 0s;    border-color: rgba(10,132,255,0.50); }
+    .r2 { width: 158px; height: 158px; animation-delay: 0.9s;  border-color: rgba(10,132,255,0.26); }
+    .r3 { width: 204px; height: 204px; animation-delay: 1.8s;  border-color: rgba(10,132,255,0.13); }
+    .r4 { width: 250px; height: 250px; animation-delay: 2.7s;  border-color: rgba(10,132,255,0.05); }
+    @keyframes ring-expand {
+      0%   { transform: scale(0.85); opacity: 1; }
+      100% { transform: scale(1.15); opacity: 0; }
+    }
+
+    /* Big host avatar */
+    .host-big-av {
+      width: 104px; height: 104px;
+      border-radius: 50%;
+      background: linear-gradient(145deg, rgba(10,132,255,0.22), rgba(6,10,26,0.95));
+      border: 1.5px solid rgba(10,132,255,0.55);
+      box-shadow:
+        0 0 0 8px rgba(10,132,255,0.08),
+        0 0 50px rgba(10,132,255,0.45),
+        0 0 100px rgba(10,132,255,0.18),
+        inset 0 0 30px rgba(10,132,255,0.07);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 34px; font-weight: 800; color: var(--text-1);
+      z-index: 1; position: relative;
+      transition: box-shadow 0.45s;
+    }
+    .host-big-av.speaking {
+      box-shadow:
+        0 0 0 10px rgba(10,132,255,0.12),
+        0 0 70px rgba(10,132,255,0.65),
+        0 0 130px rgba(10,132,255,0.25),
+        inset 0 0 30px rgba(10,132,255,0.10);
+    }
+
+    /* Name chip — pill, semi-transparent blue */
+    .host-name-chip {
+      background: rgba(10,132,255,0.18);
+      color: var(--accent-light);
+      border: 1px solid rgba(10,132,255,0.38);
+      font-size: 12px; font-weight: 700;
+      padding: 5px 18px;
+      border-radius: var(--r-full);
+      margin-bottom: 14px;
+      backdrop-filter: blur(8px);
+      letter-spacing: 0.3px;
+      z-index: 1;
+    }
+
+    /* Full name */
+    .host-name-full {
+      font-size: 24px; font-weight: 800;
+      color: var(--text-1);
+      letter-spacing: -0.5px;
+      margin-bottom: 10px;
+      text-align: center;
+      z-index: 1;
+    }
+
+    /* Role badge */
+    .host-role-pill {
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.10);
+      color: var(--text-2);
+      font-size: 10px; font-weight: 600;
+      letter-spacing: 2px;
+      padding: 5px 14px;
+      border-radius: var(--r-full);
+      margin-bottom: 16px;
+      text-transform: uppercase;
+      backdrop-filter: blur(8px);
+      z-index: 1;
+    }
+
+    /* Listener count */
+    .host-listeners-row {
+      display: flex; align-items: center; gap: 7px;
+      font-size: 13px; font-weight: 300;
+      color: var(--text-2); z-index: 1;
+    }
+
+    /* ── Guest bubbles ───────────────────────────────────────────── */
+    .guests-row {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      padding: 10px 20px 4px;
+      flex-wrap: wrap;
+    }
+    .guest-bubble {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 7px;
+    }
+    .guest-av {
+      width: 56px; height: 56px;
+      border-radius: 50%;
+      background: var(--surface-el);
+      border: 2px solid transparent;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; font-weight: 700; color: var(--text-1);
+      position: relative; overflow: hidden;
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .guest-av.speaking {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 3px rgba(10,132,255,0.12), 0 0 18px rgba(10,132,255,0.28);
+      animation: ring-breathe 1.8s ease-in-out infinite;
+    }
+    @keyframes ring-breathe {
+      0%,100% { box-shadow: 0 0 0 3px rgba(10,132,255,0.12), 0 0 18px rgba(10,132,255,0.28); }
+      50%      { box-shadow: 0 0 0 6px rgba(10,132,255,0.07), 0 0 30px rgba(10,132,255,0.45); }
+    }
+    .muted-overlay {
+      position: absolute; inset: 0;
+      background: rgba(0,0,0,0.6);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 18px; border-radius: 50%;
+    }
+    .guest-name {
+      font-size: 11px; font-weight: 500; color: var(--text-2);
+      text-align: center; white-space: nowrap;
+    }
+    .btn-mute-xs {
+      font-size: 10px; font-weight: 600;
+      padding: 3px 9px;
+      border-radius: var(--r-full);
+      border: 1px solid var(--border-el);
+      background: none; color: var(--text-3);
+      cursor: pointer; font-family: 'Heebo', sans-serif;
+      transition: all var(--transition);
+    }
+    .btn-mute-xs:hover { border-color: var(--accent); color: var(--accent-light); }
+
+    /* ── Listener avatar row ─────────────────────────────────────── */
+    .listener-bubbles {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      padding: 16px 20px 8px;
+    }
+    .listener-av {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--surface-el);
+      border: 2px solid var(--bg);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 17px;
+      margin-inline-end: -10px;
+      flex-shrink: 0;
+    }
+    .add-listener-btn {
+      width: 38px; height: 38px;
+      border-radius: 50%;
+      background: var(--surface-el);
+      border: 2px solid var(--border-el);
+      color: var(--text-2);
+      font-size: 18px; font-weight: 300;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-inline-end: 6px;
+      z-index: 5;
+      transition: all var(--transition);
+    }
+    .add-listener-btn:hover { background: var(--accent-soft); color: var(--accent-light); }
+    .listener-more {
+      font-size: 11px; font-weight: 600; color: var(--text-2);
+      margin-inline-start: 18px;
+      white-space: nowrap;
+    }
+
+    /* ── Queue ──────────────────────────────────────────────────── */
+    .queue-card {
+      margin: 12px 18px 20px;
+      background: var(--surface);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--border-el);
+      border-radius: var(--r-lg);
+      padding: 16px 18px 8px;
+    }
+    .queue-heading {
+      font-size: 11px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 1px;
+      color: var(--text-3); margin-bottom: 14px;
+    }
+    .queue-row {
+      display: flex; align-items: center; gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .queue-row:last-child { border-bottom: none; padding-bottom: 6px; }
+    .queue-avatar {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--surface-el); border: 1px solid var(--border-el);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 13px; font-weight: 700; color: var(--text-2); flex-shrink: 0;
+    }
+    .queue-name { flex: 1; font-size: 14px; font-weight: 600; color: var(--text-1); }
+    .queue-actions { display: flex; gap: 8px; }
+    .btn-approve {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--green-soft); border: 1px solid rgba(48,209,88,0.25);
+      color: var(--green); font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .btn-approve:hover { background: var(--green); color: #fff; }
+    .btn-deny {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--live-soft); border: 1px solid rgba(255,59,48,0.2);
+      color: var(--live); font-size: 14px; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: all var(--transition);
+    }
+    .btn-deny:hover { background: var(--live); color: #fff; }
+
+    /* ── Bottom bar ─────────────────────────────────────────────── */
+    .loop-bottom {
+      position: fixed;
+      bottom: 0; left: 50%;
+      transform: translateX(-50%);
+      width: 100%; max-width: 480px;
+      background: rgba(0,0,0,0.88);
+      backdrop-filter: blur(32px) saturate(160%);
+      -webkit-backdrop-filter: blur(32px) saturate(160%);
+      border-top: 1px solid rgba(255,255,255,0.06);
+      padding: 16px 22px 40px;
+      display: flex; gap: 14px;
+      z-index: 30;
+    }
+
+    /* Capsule action buttons */
+    .btn-action {
+      flex: 1; padding: 15px;
+      border-radius: var(--r-full);          /* pill / capsule */
+      border: 1px solid rgba(255,255,255,0.09);
+      background: rgba(255,255,255,0.04);
+      color: var(--text-1);
+      font-family: 'Heebo', sans-serif;
+      font-size: 14px; font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      backdrop-filter: blur(8px);
+      letter-spacing: 0.1px;
+    }
+    .btn-action:hover {
+      background: rgba(255,255,255,0.07);
+      border-color: rgba(255,255,255,0.14);
+    }
+    .btn-action.on-air {
+      background: rgba(48,209,88,0.10);
+      border-color: rgba(48,209,88,0.28);
+      color: var(--green);
+      box-shadow: 0 0 28px rgba(48,209,88,0.12);
+    }
+    .btn-action.hand-up {
+      background: rgba(10,132,255,0.12);
+      border-color: rgba(10,132,255,0.30);
+      color: var(--accent-light);
+      box-shadow: 0 0 28px rgba(10,132,255,0.15);
+    }
+    .btn-action.recording {
+      background: rgba(255,59,48,0.10);
+      border-color: rgba(255,59,48,0.32);
+      color: var(--live);
+      animation: recording-pulse 1.7s ease-in-out infinite;
+    }
+    @keyframes recording-pulse {
+      0%,100% { box-shadow: 0 0 20px rgba(255,59,48,0.20); }
+      50%      { box-shadow: 0 0 44px rgba(255,59,48,0.50); }
+    }
+
+    /* Capsule end / leave buttons in topbar */
+    .btn-end {
+      background: rgba(255,59,48,0.10);
+      color: var(--live);
+      border: 1px solid rgba(255,59,48,0.25);
+      padding: 8px 18px;
+      border-radius: var(--r-full);
+      font-family: 'Heebo', sans-serif;
+      font-size: 13px; font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      backdrop-filter: blur(8px);
+    }
+    .btn-end:hover {
+      background: rgba(255,59,48,0.22);
+      border-color: rgba(255,59,48,0.50);
+    }
+
+    .btn-leave {
+      background: rgba(255,255,255,0.05);
+      color: var(--text-2);
+      border: 1px solid rgba(255,255,255,0.10);
+      padding: 8px 18px;
+      border-radius: var(--r-full);
+      font-family: 'Heebo', sans-serif;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all var(--transition);
+      white-space: nowrap;
+      backdrop-filter: blur(8px);
+    }
+    .btn-leave:hover {
+      background: rgba(255,255,255,0.09);
+      border-color: rgba(255,255,255,0.18);
+      color: var(--text-1);
+    }
+
+    /* ── Toast ──────────────────────────────────────────────────── */
+    .toast {
+      position: fixed;
+      bottom: 116px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #0E1628;
+      border: 1px solid var(--border-el);
+      color: var(--text-1);
+      font-family: 'Heebo', sans-serif;
+      font-size: 14px; font-weight: 500;
+      padding: 12px 22px;
+      border-radius: var(--r-full);
+      opacity: 0;
+      transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+      pointer-events: none;
+      white-space: nowrap;
+      z-index: 999;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+    }
+    .toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+  </style>
+</head>
+<body>
+
+<div class="loop-shell">
+
+  <!-- ── Top bar ───────────────────────────────────────────────── -->
+  <header class="loop-topbar">
+
+    <!-- Left: waveform bars -->
+    <div class="topbar-wave">
+      <div class="wb"></div><div class="wb"></div>
+      <div class="wb"></div><div class="wb"></div><div class="wb"></div>
+    </div>
+
+    <!-- Center: logo + wordmark -->
+    <div class="topbar-center">
+      <img src="logo.svg" alt="MicLoop" />
+      <span class="topbar-wordmark">MicLoop</span>
+    </div>
+
+    <!-- Right: LIVE NOW + end/leave -->
+    <div style="display:flex;align-items:center;gap:10px;">
+      <div class="live-now-pill">
+        <div class="dot"></div>
+        <span>LIVE NOW</span>
+      </div>
+      <div id="ctrlHost" style="display:none">
+        <button class="btn-end" onclick="confirmEnd()">סיום</button>
+      </div>
+      <div id="ctrlListener" style="display:none">
+        <button class="btn-leave" onclick="leaveLoop()">יציאה</button>
+      </div>
+    </div>
+
+  </header>
+
+  <!-- Timer row -->
+  <div class="loop-timer-bar">
+    <div class="rec-dot-small"></div>
+    <span class="rec-timer-sm" id="timer">00:00</span>
+  </div>
+
+  <!-- View toggle (demo) -->
+  <div class="view-toggle">
+    <button class="toggle-btn active" id="tbHost"     onclick="switchView('host')">👑 תצוגת מנהל</button>
+    <button class="toggle-btn"        id="tbListener" onclick="switchView('listener')">👤 תצוגת מאזין</button>
+  </div>
+
+  <!-- Scrollable content -->
+  <div class="loop-content" id="loopContent"></div>
+
+  <!-- Bottom bar -->
+  <div class="loop-bottom" id="loopBottom"></div>
+
+</div>
+
+<script src="recordings.js"></script>
+<script>
+const params    = new URLSearchParams(location.search)
+const rawTitle  = params.get('title') || 'עתיד הבינה המלאכותית בעבודה יצירתית'
+const isNewLoop = params.has('isHost')
+
+let timerSec   = isNewLoop ? 0 : 183
+let micOn      = true
+let handRaised = false
+
+const SPEAKERS = [
+  { name: 'יואב קליין',  role: 'host',  speaking: true,  muted: false },
+  { name: 'נועה בן-דוד', role: 'guest', speaking: false, muted: false },
+  { name: 'דנה לוי',     role: 'guest', speaking: true,  muted: false },
+]
+const QUEUE = [
+  { name: 'אמית שרון' },
+  { name: 'תמר כהן'   },
+]
+const FAKE_LISTENERS = [
+  { name: 'Sarah',  emoji: '👩' },
+  { name: 'Daniel', emoji: '🧑' },
+  { name: 'Noa',    emoji: '👩‍🦰' },
+  { name: 'Sara',   emoji: '👩‍💻' },
+]
+
+const pad      = n    => String(n).padStart(2, '0')
+const initials = name => name.split(' ').map(w => w[0]).join('').slice(0, 2)
+
+// Timer
+setInterval(() => {
+  timerSec++
+  document.getElementById('timer').textContent =
+    `${pad(Math.floor(timerSec / 60))}:${pad(timerSec % 60)}`
+  if (timerSec % 5 === 0) rotateSpeaking()
+}, 1000)
+
+function rotateSpeaking() {
+  const guests = SPEAKERS.filter(s => s.role === 'guest' && !s.muted)
+  if (!guests.length) return
+  guests.forEach(s => s.speaking = false)
+  guests[Math.floor(Math.random() * guests.length)].speaking = true
+  renderContent()
+}
+
+// Init
+switchView('host')
+
+function switchView(v) {
+  const isHost = v === 'host'
+  document.getElementById('tbHost').classList.toggle('active', isHost)
+  document.getElementById('tbListener').classList.toggle('active', !isHost)
+  document.getElementById('ctrlHost').style.display     = isHost ? 'block' : 'none'
+  document.getElementById('ctrlListener').style.display = isHost ? 'none'  : 'block'
+  renderContent()
+  renderBottom()
+}
+
+function renderContent() {
+  const isHost = document.getElementById('tbHost').classList.contains('active')
+  const host   = SPEAKERS.find(s => s.role === 'host') || SPEAKERS[0]
+  const guests = SPEAKERS.filter(s => s.role !== 'host')
+
+  // ── Centered host stage ──────────────────────────────────────────
+  let html = `
+    <div class="host-stage">
+      <div class="host-glow-cloud"></div>
+      <div class="host-rings-wrap">
+        <div class="ring r1"></div>
+        <div class="ring r2"></div>
+        <div class="ring r3"></div>
+        <div class="ring r4"></div>
+        <div class="host-big-av ${host.speaking && !host.muted ? 'speaking' : ''}">
+          ${initials(host.name)}
+        </div>
+      </div>
+
+      <div class="host-name-chip">${host.name.split(' ')[0]}</div>
+      <div class="host-name-full">${host.name} (מארח)</div>
+      <div class="host-role-pill">SPEAKER</div>
+      <div class="host-listeners-row">
+        <span>👥</span>
+        <span>47 מאזינים</span>
+      </div>
+    </div>`
+
+  // ── Guest bubbles (row) ──────────────────────────────────────────
+  if (guests.length > 0) {
+    html += `<div class="guests-row">`
+    guests.forEach(sp => {
+      const idx = SPEAKERS.indexOf(sp)
+      html += `
+        <div class="guest-bubble">
+          <div class="guest-av ${sp.speaking && !sp.muted ? 'speaking' : ''}">
+            ${initials(sp.name)}
+            ${sp.muted ? '<div class="muted-overlay">🔇</div>' : ''}
+          </div>
+          <div class="guest-name">${sp.name.split(' ')[0]}</div>
+          ${isHost ? `<button class="btn-mute-xs" onclick="toggleMute(${idx})">
+            ${sp.muted ? 'בטל' : 'השתק'}</button>` : ''}
+        </div>`
+    })
+    html += `</div>`
+  }
+
+  // ── Listener avatar row ──────────────────────────────────────────
+  const listenersHtml = FAKE_LISTENERS.map(l =>
+    `<div class="listener-av" title="${l.name}">${l.emoji}</div>`
+  ).join('')
+
+  html += `
+    <div class="listener-bubbles">
+      <button class="add-listener-btn">+</button>
+      ${listenersHtml}
+      <span class="listener-more">+43</span>
+    </div>`
+
+  // ── Raise-hand queue (host only) ─────────────────────────────────
+  if (isHost && QUEUE.length > 0) {
+    html += `
+      <div class="queue-card">
+        <div class="queue-heading">ממתינים לדיבור (${QUEUE.length})</div>`
+    QUEUE.forEach((p, i) => {
+      html += `
+        <div class="queue-row">
+          <div class="queue-avatar">${initials(p.name)}</div>
+          <div class="queue-name">${p.name}</div>
+          <div class="queue-actions">
+            <button class="btn-approve" onclick="approve(${i})" title="אשר">✓</button>
+            <button class="btn-deny"    onclick="deny(${i})"    title="דחה">✕</button>
+          </div>
+        </div>`
+    })
+    html += `</div>`
+  }
+
+  document.getElementById('loopContent').innerHTML = html
+}
+
+function renderBottom() {
+  const isHost = document.getElementById('tbHost').classList.contains('active')
+
+  let micClass, micLabel
+  if (isRecording) {
+    micClass = 'recording'
+    micLabel = '⏹ עצור הקלטה'
+  } else if (micOn) {
+    micClass = 'on-air'
+    micLabel = '🎙 לחץ להקלטה'
+  } else {
+    micClass = ''
+    micLabel = '🎙 לחץ להקלטה'
+  }
+
+  document.getElementById('loopBottom').innerHTML = isHost
+    ? `<button class="btn-action ${micClass}" onclick="toggleMic()">
+         ${micLabel}
+       </button>`
+    : `<button class="btn-action ${handRaised ? 'hand-up' : ''}" onclick="toggleHand()">
+         ✋ ${handRaised ? 'הורד יד' : 'הרם יד'}
+       </button>`
+}
+
+// ─── MediaRecorder ────────────────────────────────────────────────
+let mediaRecorder     = null
+let audioChunks       = []
+let recordingStream   = null
+let isRecording       = false
+let recordingDuration = 0
+let recordingStart    = 0
+
+function getBestMimeType() {
+  const candidates = [
+    'audio/webm;codecs=opus',
+    'audio/webm',
+    'audio/ogg;codecs=opus',
+    'audio/ogg',
+    'audio/mp4',
+  ]
+  return candidates.find(t => MediaRecorder.isTypeSupported(t)) ?? ''
+}
+
+async function startRecording() {
+  try {
+    recordingStream = await navigator.mediaDevices.getUserMedia({ audio: true })
+  } catch {
+    showToast('⚠️ לא ניתן לגשת למיקרופון')
+    return
+  }
+
+  const mimeType = getBestMimeType()
+  mediaRecorder  = new MediaRecorder(recordingStream, mimeType ? { mimeType } : {})
+  audioChunks    = []
+
+  mediaRecorder.ondataavailable = e => {
+    if (e.data.size > 0) audioChunks.push(e.data)
+  }
+
+  mediaRecorder.onstop = async () => {
+    const finalMime = mediaRecorder.mimeType || 'audio/webm'
+    const blob      = new Blob(audioChunks, { type: finalMime })
+
+    recordingStream.getTracks().forEach(t => t.stop())
+    recordingStream = null
+
+    const hhmm = new Date().toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+    const name  = `הקלטה - ${hhmm}`
+
+    try {
+      await saveRecording({ blob, name, duration: recordingDuration, mimeType: finalMime })
+      showToast(`✅ "${name}" נשמרה בלופים שלי`)
+    } catch {
+      showToast('⚠️ שגיאה בשמירת ההקלטה')
+    }
+  }
+
+  mediaRecorder.start(250)
+  isRecording    = true
+  micOn          = true
+  recordingStart = Date.now()
+  renderBottom()
+  showToast('🔴 מקליט...')
+}
+
+function stopRecording() {
+  recordingDuration = Math.round((Date.now() - recordingStart) / 1000)
+  if (mediaRecorder && mediaRecorder.state !== 'inactive') mediaRecorder.stop()
+  isRecording = false
+  micOn       = false
+  renderBottom()
+}
+
+async function toggleMic() {
+  if (isRecording) stopRecording()
+  else await startRecording()
+}
+
+function toggleHand() { handRaised = !handRaised; renderBottom() }
+
+// ─── Toast ────────────────────────────────────────────────────────
+let toastTimer = null
+function showToast(msg) {
+  let toast = document.getElementById('toast')
+  if (!toast) {
+    toast = document.createElement('div')
+    toast.id = 'toast'
+    toast.className = 'toast'
+    document.body.appendChild(toast)
+  }
+  toast.textContent = msg
+  toast.classList.add('show')
+  clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => toast.classList.remove('show'), 3200)
+}
+
+function toggleMute(i) {
+  SPEAKERS[i].muted    = !SPEAKERS[i].muted
+  SPEAKERS[i].speaking = false
+  renderContent()
+}
+function approve(i) {
+  SPEAKERS.push({ name: QUEUE.splice(i, 1)[0].name, role: 'guest', speaking: false, muted: false })
+  renderContent()
+}
+function deny(i) { QUEUE.splice(i, 1); renderContent() }
+
+function confirmEnd() {
+  if (confirm('לסיים את הלופ? ההקלטה תישמר בפיד.'))
+    window.location.href = 'index.html'
+}
+function leaveLoop() { window.location.href = 'index.html' }
+</script>
+</body>
+</html>
