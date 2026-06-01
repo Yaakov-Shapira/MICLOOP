@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "720856170616",
+    "project_id": "micloop-6333b",
+    "storage_bucket": "micloop-6333b.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:720856170616:android:b4659bcd913263e1f86d8d",
+        "android_client_info": {
+          "package_name": "com.micloop.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBZJ5UWGwz8dtTgioMmMqFaky3HuOnK0Pg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
