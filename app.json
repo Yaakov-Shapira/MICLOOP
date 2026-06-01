@@ -12,14 +12,20 @@
       "resizeMode": "contain",
       "backgroundColor": "#000000"
     },
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.micloop.app",
+      "googleServicesFile": "./GoogleService-Info.plist",
       "buildNumber": "1",
       "infoPlist": {
         "NSMicrophoneUsageDescription": "MicLoop needs microphone access to broadcast live loops",
-        "UIBackgroundModes": ["audio", "voip"]
+        "UIBackgroundModes": [
+          "audio",
+          "voip"
+        ]
       }
     },
     "android": {
@@ -60,7 +66,8 @@
         "expo-build-properties",
         {
           "ios": {
-            "deploymentTarget": "15.1"
+            "deploymentTarget": "15.1",
+            "useFrameworks": "static"
           },
           "android": {
             "compileSdkVersion": 35,
@@ -70,7 +77,9 @@
         }
       ],
       "@react-native-firebase/app",
-      "@react-native-firebase/auth"
+      ["@react-native-firebase/auth", { "ios": { "captchaOpenUrlFix": false } }],
+      "expo-font",
+      "expo-localization"
     ],
     "experiments": {
       "typedRoutes": true

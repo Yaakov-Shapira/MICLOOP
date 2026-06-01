@@ -24,6 +24,9 @@ type Step = 'phone' | 'otp' | 'name';
 
 const AVATARS = ['🎙️', '🎧', '🎵', '🎤', '🔊', '🎶', '🎼', '🎺'];
 
+const DEV_PHONE = '+972546115919';
+const DEV_CODE = '123456';
+
 export default function WelcomeScreen() {
   const [step, setStep] = useState<Step>('phone');
   const [phone, setPhone] = useState('');
@@ -33,15 +36,26 @@ export default function WelcomeScreen() {
   const [error, setError] = useState('');
   const confirmRef = useRef<FirebaseAuthTypes.ConfirmationResult | null>(null);
   const router = useRouter();
-  const { showToast, user } = useAppStore();
+  const { user, setUser } = useAppStore();
+
+  function formatPhone(raw: string) {
+    return raw.startsWith('+') ? raw : `+972${raw.replace(/^0/, '')}`;
+  }
+
+  function isDevPhone() {
+    return __DEV__ && formatPhone(phone) === DEV_PHONE;
+  }
 
   async function sendCode() {
     if (!phone.trim()) return;
     setLoading(true);
     setError('');
     try {
-      const formatted = phone.startsWith('+') ? phone : `+972${phone.replace(/^0/, '')}`;
-      confirmRef.current = await auth().signInWithPhoneNumber(formatted);
+      if (isDevPhone()) {
+        setStep('otp');
+        return;
+      }
+      confirmRef.current = await auth().signInWithPhoneNumber(formatPhone(phone));
       setStep('otp');
     } catch (e: any) {
       setError(e.message ?? t('errors.genericError'));
@@ -51,10 +65,20 @@ export default function WelcomeScreen() {
   }
 
   async function verifyCode() {
-    if (!confirmRef.current || otp.length < 6) return;
+    if (otp.length < 6) return;
     setLoading(true);
     setError('');
     try {
+      if (isDevPhone()) {
+        if (otp !== DEV_CODE) {
+          setError('קוד שגוי — הכנס 123456');
+          return;
+        }
+        await auth().signInAnonymously();
+        setStep('name');
+        return;
+      }
+      if (!confirmRef.current) return;
       await confirmRef.current.confirm(otp);
       setStep('name');
     } catch (e: any) {
@@ -68,7 +92,12 @@ export default function WelcomeScreen() {
     if (!name.trim() || !user) return;
     setLoading(true);
     const avatar = AVATARS[Math.floor(Math.random() * AVATARS.length)];
-    await upsertUser(user.uid, { name: name.trim(), avatar, phone: user.phone });
+    try {
+      await upsertUser(user.uid, { name: name.trim(), avatar, phone: user.phone });
+    } catch {
+      // Firestore write failed — update local state so routing doesn't loop
+    }
+    setUser({ ...user, name: name.trim(), avatar });
     router.replace('/(tabs)');
   }
 
@@ -98,7 +127,6 @@ export default function WelcomeScreen() {
                 placeholder={t('auth.phonePlaceholder')}
                 placeholderTextColor={Colors.text3}
                 keyboardType="phone-pad"
-                autoFocus
               />
               {error ? <Text style={styles.error}>{error}</Text> : null}
               <TouchableOpacity
@@ -119,6 +147,9 @@ export default function WelcomeScreen() {
             <>
               <Text style={[styles.title, { textAlign }]}>{t('auth.otpLabel')}</Text>
               <Text style={[styles.subtitle, { textAlign }]}>{phone}</Text>
+              {isDevPhone() && (
+                <Text style={styles.devHint}>⚙️ Dev mode — הכנס 123456</Text>
+              )}
               <TextInput
                 style={[styles.input, styles.otpInput]}
                 value={otp}
@@ -248,6 +279,13 @@ const styles = StyleSheet.create({
     fontFamily: Fonts.regular,
     fontSize: 13,
     color: Colors.live,
+    marginBottom: Spacing.sm,
+  },
+  devHint: {
+    fontFamily: Fonts.regular,
+    fontSize: 13,
+    color: Colors.text3,
+    textAlign: 'center',
     marginBottom: Spacing.sm,
   },
 });

@@ -11,19 +11,19 @@ export function useFirebaseAuth() {
     setLoading(true);
     const unsubscribe = auth().onAuthStateChanged(async (firebaseUser) => {
       if (firebaseUser) {
-        const profile = await getUser(firebaseUser.uid);
-        if (profile) {
-          setUser(profile);
-        } else {
-          // New user — profile will be set after onboarding
-          setUser({
-            uid: firebaseUser.uid,
-            name: '',
-            phone: firebaseUser.phoneNumber ?? '',
-            avatar: '🎙️',
-            verifyStatus: 'none',
-            createdAt: null as any,
-          });
+        const fallback = {
+          uid: firebaseUser.uid,
+          name: '',
+          phone: firebaseUser.phoneNumber ?? '',
+          avatar: '🎙️',
+          verifyStatus: 'none' as const,
+          createdAt: null as any,
+        };
+        try {
+          const profile = await getUser(firebaseUser.uid);
+          setUser(profile ?? fallback);
+        } catch {
+          setUser(fallback);
         }
       } else {
         setUser(null);
