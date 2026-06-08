@@ -1,3 +1,6 @@
+import { registerGlobals } from '@livekit/react-native';
+registerGlobals();
+
 import { useEffect } from 'react';
 import { Slot, useRouter, useSegments } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';

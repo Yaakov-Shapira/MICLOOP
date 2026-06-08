@@ -16,20 +16,35 @@ const LIVEKIT_API_KEY = process.env.LIVEKIT_API_KEY!;
 const LIVEKIT_API_SECRET = process.env.LIVEKIT_API_SECRET!;
 const LIVEKIT_HOST = process.env.LIVEKIT_HOST ?? 'https://micloop-t9urxpzr.livekit.cloud';
 
-function makeLiveKitToken(
+async function makeLiveKitToken(
   roomName: string,
   participantIdentity: string,
   participantName: string,
   grants: VideoGrant
-): string {
+): Promise<string> {
   const token = new AccessToken(LIVEKIT_API_KEY, LIVEKIT_API_SECRET, {
     identity: participantIdentity,
     name: participantName,
     ttl: '4h',
   });
   token.addGrant(grants);
-  return token.toJwt() as unknown as string;
+  return token.toJwt();
 }
+
+// ─── generateCustomToken ─────────────────────────────────────────────────────
+// Bridges native auth (@react-native-firebase) and web SDK auth (firebase/auth).
+// Client passes its native ID token; we verify it and return a custom token
+// the web SDK can use to sign in — giving Firestore the auth context it needs.
+export const generateCustomToken = onCall(
+  { serviceAccount: 'firebase-adminsdk-fbsvc@micloop-6333b.iam.gserviceaccount.com' },
+  async (request) => {
+  const { idToken } = request.data as { idToken: string };
+  if (!idToken) throw new HttpsError('invalid-argument', 'idToken required');
+  const decoded = await admin.auth().verifyIdToken(idToken);
+  const customToken = await admin.auth().createCustomToken(decoded.uid);
+  return { token: customToken };
+  }
+);
 
 // ─── createLoop ──────────────────────────────────────────────────────────────
 // Called by host to start a new live loop.
@@ -42,8 +57,9 @@ export const createLoop = onCall(
 
     const uid = request.auth.uid;
     const userDoc = await db.collection('users').doc(uid).get();
-    const user = userDoc.data() as { name: string; avatar: string } | undefined;
-    if (!user) throw new HttpsError('not-found', 'User profile not found');
+    const userData = userDoc.data() as { name?: string; avatar?: string } | undefined;
+    const hostName = userData?.name || 'אורח';
+    const hostAvatar = userData?.avatar || '🎙️';
 
     const loopRef = db.collection('loops').doc();
     const loopId = loopRef.id;
@@ -58,12 +74,12 @@ export const createLoop = onCall(
       title: title.trim(),
       status: 'live',
       hostId: uid,
-      hostName: user.name,
-      hostAvatar: user.avatar,
+      hostName,
+      hostAvatar,
       livekitRoomName: roomName,
       recordingUrl: null,
       listenerCount: 0,
-      speakers: [{ userId: uid, name: user.name, avatar: user.avatar, muted: false }],
+      speakers: [{ userId: uid, name: hostName, avatar: hostAvatar, muted: false }],
       startTime: admin.firestore.FieldValue.serverTimestamp(),
       endTime: null,
       scheduledFor: null,
@@ -71,7 +87,7 @@ export const createLoop = onCall(
     });
 
     // Generate host token with full publish rights
-    const token = makeLiveKitToken(roomName, uid, user.name, {
+    const token = await makeLiveKitToken(roomName, uid, hostName, {
       roomCreate: false,
       roomJoin: true,
       roomAdmin: true,
@@ -109,7 +125,7 @@ export const joinLoop = onCall(
     });
 
     // Generate listener token — subscribe only, no publish
-    const token = makeLiveKitToken(loop.livekitRoomName, uid, participantName, {
+    const token = await makeLiveKitToken(loop.livekitRoomName, uid, participantName, {
       roomJoin: true,
       canPublish: false,
       canSubscribe: true,
@@ -140,21 +156,23 @@ export const promoteToSpeaker = onCall(
 
     // Get promoted user's info
     const userDoc = await db.collection('users').doc(userId).get();
-    const user = userDoc.data() as { name: string; avatar: string } | undefined;
-    if (!user) throw new HttpsError('not-found', 'User not found');
+    const userData = userDoc.data() as { name?: string; avatar?: string } | undefined;
+    if (!userData) throw new HttpsError('not-found', 'User not found');
+    const speakerName = userData.name || 'אורח';
+    const speakerAvatar = userData.avatar || '🎙️';
 
     // Update speakers array in Firestore
     await db.collection('loops').doc(loopId).update({
       speakers: admin.firestore.FieldValue.arrayUnion({
         userId,
-        name: user.name,
-        avatar: user.avatar,
+        name: speakerName,
+        avatar: speakerAvatar,
         muted: false,
       }),
     });
 
     // Generate speaker token with publish rights
-    const token = makeLiveKitToken(loop.livekitRoomName, userId, user.name, {
+    const token = await makeLiveKitToken(loop.livekitRoomName, userId, speakerName, {
       roomJoin: true,
       canPublish: true,
       canSubscribe: true,

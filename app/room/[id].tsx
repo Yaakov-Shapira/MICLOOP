@@ -55,9 +55,15 @@ export default function RoomScreen() {
   useEffect(() => {
     async function join() {
       try {
-        const token = initialToken ?? (await joinLoop(id)).token;
+        let token = initialToken;
+        if (!token) {
+          const result = await joinLoop(id);
+          token = result.token;
+          setRole('listener');
+        }
         await connect(token);
-      } catch {
+      } catch (err) {
+        console.error('[room] connect failed:', err);
         showToast(t('errors.genericError'), 'error');
         router.back();
       }

@@ -61,7 +61,8 @@ export default function HomeScreen() {
       setSheetVisible(false);
       setLoopTitle('');
       router.push({ pathname: `/room/${loopId}`, params: { token, role: 'host' } });
-    } catch {
+    } catch (err) {
+      console.error('[createLoop] error:', JSON.stringify(err), err);
       showToast(t('errors.genericError'), 'error');
     } finally {
       setCreating(false);

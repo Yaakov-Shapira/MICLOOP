@@ -7,7 +7,7 @@ import {
   RemoteParticipant,
   Participant,
   ConnectionState,
-} from '@livekit/react-native';
+} from 'livekit-client';
 
 const LIVEKIT_URL = process.env.EXPO_PUBLIC_LIVEKIT_URL!;
 
@@ -55,7 +55,11 @@ export function useLiveKit(): UseLiveKitReturn {
     const room = new Room();
     roomRef.current = room;
 
-    room.on(RoomEvent.ConnectionStateChanged, (state) => setConnectionState(state));
+    room.on(RoomEvent.ConnectionStateChanged, (state) => {
+      console.log('[livekit] connectionState:', state);
+      setConnectionState(state);
+    });
+    room.on(RoomEvent.Disconnected, (reason) => console.log('[livekit] disconnected, reason:', reason));
     room.on(RoomEvent.ParticipantConnected, () => updateParticipants(room));
     room.on(RoomEvent.ParticipantDisconnected, () => updateParticipants(room));
     room.on(RoomEvent.TrackPublished, () => updateParticipants(room));

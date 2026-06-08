@@ -19,8 +19,6 @@ import { upsertUser, submitHostRequest, subscribeHostRequests, updateHostRequest
 import GlassCard from '../../components/shared/GlassCard';
 import type { HostRequest } from '../../types';
 
-const ADMIN_NAME = 'admin'; // Change to your name
-
 export default function ProfileScreen() {
   const { user, setUser, showToast, isAuthenticated, showGate } = useAppStore();
   const [name, setName] = useState(user?.name ?? '');
@@ -54,7 +52,7 @@ export default function ProfileScreen() {
     );
   }
 
-  const isAdmin = user?.name?.toLowerCase() === ADMIN_NAME;
+  const isAdmin = user?.isAdmin === true;
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -160,8 +158,8 @@ function HostRequestSheet({ onClose, onSubmit }: { onClose: () => void; onSubmit
     setLoading(true);
     await submitHostRequest({
       userId: user.uid,
-      name: user.name,
-      phone: user.phone,
+      name: user.name || '',
+      phone: user.phone || '',
       topic: topic.trim(),
       preferredTime: time.trim(),
     });

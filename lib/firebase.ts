@@ -2,6 +2,7 @@ import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getFunctions } from 'firebase/functions';
+import { initializeAuth, inMemoryPersistence, getAuth } from 'firebase/auth';
 
 const firebaseConfig = {
   apiKey: process.env.EXPO_PUBLIC_FIREBASE_API_KEY!,
@@ -13,7 +14,14 @@ const firebaseConfig = {
 };
 
 // Prevent duplicate init in hot-reload
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+const isNewApp = getApps().length === 0;
+const app = isNewApp ? initializeApp(firebaseConfig) : getApps()[0];
+
+// Web SDK auth — signed in via custom token after native phone auth succeeds.
+// inMemoryPersistence: native auth (@react-native-firebase) handles real persistence.
+export const webAuth = isNewApp
+  ? initializeAuth(app, { persistence: inMemoryPersistence })
+  : getAuth(app);
 
 export const db = getFirestore(app);
 export const storage = getStorage(app);

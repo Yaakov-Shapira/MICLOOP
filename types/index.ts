@@ -11,6 +11,7 @@ export interface AppUser {
   avatar: string; // emoji
   avatarUrl?: string;
   verifyStatus: VerifyStatus;
+  isAdmin?: boolean;
   fcmToken?: string;
   createdAt: Timestamp;
 }
